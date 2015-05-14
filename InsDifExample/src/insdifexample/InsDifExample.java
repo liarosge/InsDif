@@ -5,6 +5,7 @@
  */
 package insdifexample;
 
+import java.net.URL;
 import mulan.data.MultiLabelInstances;
 import weka.core.Utils;
 
@@ -20,12 +21,11 @@ public class InsDifExample {
      * @param args the command line arguments
      */
     public static void main(String args[]) throws Exception {
-        ClassLoader classLoader = new InsDifExample().getClass().getClassLoader();
-        trainFilePath = classLoader.getResource("resources/emotions-train.arrf").getFile();
-        testFilePath = classLoader.getResource("resources/emotions-test.arff").getFile();
-        xmlFilePath = classLoader.getResource("resources/emotions.xml").getFile();
+        trainFilePath = InsDifExample.class.getResource("../resources/emotions-train.arff").getFile();
+        testFilePath = InsDifExample.class.getResource("../resources/emotions-test.arff").getFile();
+        xmlFilePath = InsDifExample.class.getResource("../resources/emotions.xml").getFile();
         MultiLabelInstances dataset = new MultiLabelInstances(trainFilePath, xmlFilePath);
-        InsDif ins = new InsDif();
+        InsDif ins = new InsDif(0.1f);
         ins.buildInternal(dataset);
     }
     
