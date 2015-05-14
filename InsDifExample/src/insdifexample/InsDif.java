@@ -14,15 +14,24 @@ import weka.core.Instance;
 import java.util.ArrayList;
 import weka.core.TechnicalInformation;
 import weka.core.Utils;
+import weka.core.matrix.Matrix;
 /**
  *
  * @author 
  */
 public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
-
     
+    private float ratio;
+    public InsDif(float clusterRatio){
+        ratio = clusterRatio;
+    }
+    
+    public InsDif(){
+        
+    }
     @Override
     protected void buildInternal(MultiLabelInstances trainingSet) throws Exception {
+        
         int numInstances = trainingSet.getNumInstances();
         int numLabels = trainingSet.getNumLabels();
         int[] labelIndices = trainingSet.getLabelIndices();
@@ -34,7 +43,6 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
         int numOfAttr = trainingSet.getDataSet().numAttributes();
         double [][] listAttr = new double[numInstances][numOfAttr];
         double [][] listLabels = new double[numInstances][numLabels];
-        
         for(i=0; i< numInstances; i++) {
             for(j=0; j < numOfAttr; j++) {
                 listAttr[i][j] = trainingSet.getDataSet().get(i).value(j);
@@ -44,6 +52,12 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
             }
             
         }
+        Matrix train = new Matrix(listAttr, numInstances, numOfAttr);
+        Matrix trainlabels = new Matrix(listLabels, numInstances, numLabels);
+        Matrix normCenter = new Matrix(1,6);
+        Matrix normTrain = new Matrix(1,391);
+        Matrix tVec = new Matrix (6,72);
+        Matrix innerCenterCenter = new Matrix(6,6);
         for(i = 0; i < listLabels[0].length; i++){
             ArrayList<double[]> instancesForClassI = new ArrayList<double[]>();
             for(j = 0; j < numInstances; j++){
