@@ -12,6 +12,9 @@ import mulan.classifier.MultiLabelOutput;
 import mulan.data.MultiLabelInstances;
 import weka.core.Instance;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import weka.core.TechnicalInformation;
 import weka.core.Utils;
 import weka.core.matrix.Matrix;
@@ -173,8 +176,166 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
             }
         }
         distanceMatrix.plusEquals(distanceMatrix.transpose());
+        mIMLClustering(numClusters, distanceMatrix);
         //Matlab check: seems good so far
         //TODO: MIML_cluster
+    }
+    
+    private void mIMLClustering(int numCluster, Matrix distanceMatrix) {
+        
+        int numBags = distanceMatrix.getRowDimension();
+        Matrix indicator = new Matrix(1, numBags, -1.0);
+        Matrix newIndicator=new Matrix(1, numBags, -1.0);
+        //HashMap<Integer, Integer> clustering = new HashMap<>();
+        ArrayList<ArrayList<Integer>> clustering = new ArrayList<>(numCluster);
+        ArrayList<ArrayList<Integer>> newClustering = new ArrayList<>(numCluster);
+        int i;
+        for(i = 0; i < numCluster; i++) {
+            clustering.add(new ArrayList<Integer>());
+            newClustering.add(new ArrayList<Integer>());
+        }
+        boolean success;
+        int pointer;
+        for(i = 0; i < numCluster; i++) {
+            success = false;
+            while(!success) {
+                pointer = (int) Math.floor(numBags * Math.random());
+                if(indicator.get(0, pointer) == -1) {
+                    indicator.set(0, pointer, 1);
+                    success = true;
+                    clustering.get(i).add(pointer);
+                }
+            }
+        }
+        for(i = 0; i < numBags; i++) {
+            if(indicator.get(0, i) == -1) {
+                pointer = (int) Math.floor(numCluster * Math.random());
+                clustering.get(pointer).add(i);
+            }
+        }
+        
+        /**/
+        
+        indicator = new Matrix(1, numBags, -1.0);
+        double curCenter[] = new double[numCluster];
+        double newCurCenter[] = new double[numCluster];
+        int clusterSize;
+        Matrix temp;
+        int j;
+        int minIndex;
+        for(i = 0; i < numCluster; i++) {
+            clusterSize = clustering.get(i).size();
+            temp = new Matrix(1, clusterSize, -1.0);
+            for(j = 0; j < clusterSize; j++) {
+                temp.set(0, j, sumMatrix(distanceMatrix, clustering.get(i), i));
+            }
+            minIndex = minimum(temp);
+            int min = clustering.get(i).get(minIndex);
+            clustering.get(i).clear();
+            clustering.get(i).add(min); // Remove all but minimum
+            indicator.set(0, min, i);
+            curCenter[i] = min; 
+        }
+        success = false;
+        int numIter = 0;
+        int maxIter = 100;
+        Matrix distance;
+        int index;
+        boolean noEmpty;
+        int size;
+        while(!success) {
+            numIter++;
+            if(numIter > maxIter) {
+                break;
+            }
+            distance = new Matrix(numBags, numCluster, 0.0);
+            for(i = 0; i < numBags; i++) {
+                if(indicator.get(0, i) != -1) {
+                    distance.setMatrix(i, i, 0, distance.getColumnDimension()-1, new Matrix(1,distance.getColumnDimension(),1.0));
+                    distance.set(i, (int) indicator.get(0, i), -1.0);
+                } else {
+                    distance.setMatrix(i, i, 0, distance.getColumnDimension()-1, new Matrix(curCenter,1));
+                }
+            }
+            for(i = 0; i < numBags; i++) {
+                index = minimum(distance.getMatrix(i, i, 0, distance.getColumnDimension()-1));
+                newClustering.get(index).add(i);
+            }
+            noEmpty = true;
+            for(i = 0; i < numCluster; i++) {
+                size = newClustering.get(i).size();
+                if(size == 0) {
+                    noEmpty = false;
+                    break;
+                }
+            }
+            boolean changed = false;
+            if(noEmpty) {
+                newIndicator=new Matrix(1, numBags, -1.0);
+                newCurCenter = new double[numCluster];
+                for(i = 0; i < numCluster; i++) {
+                    int cluSize = newClustering.get(i).size();
+                    temp = new Matrix(1, cluSize, -1.0);
+                    for(j = 0; j < cluSize; j++) {
+                        temp.set(0, j, sumMatrix(distanceMatrix, newClustering.get(i), i));
+                    }
+                    minIndex = minimum(temp);
+                    int min = newClustering.get(i).get(minIndex);
+                    newClustering.get(i).clear();
+                    newClustering.get(i).add(min); // Remove all but minimum
+                    newIndicator.set(0, min, i);
+                    newCurCenter[i] = min;
+                }
+                Set<Double> set1 = new HashSet<>();
+                Set<Double> set2 = new HashSet<>();
+                
+                for(i = 0; i < numCluster; i++) {
+                    set1.add(curCenter[i]);
+                    set2.add(newCurCenter[i]);
+                }
+                set1.removeAll(set2);
+                if(set1.isEmpty()) {
+                    changed = true;
+                }
+            }
+            if(changed) {
+                clustering.clear();
+                clustering.addAll(newClustering);
+                System.arraycopy(curCenter, 0, newCurCenter, 0, curCenter.length);
+                indicator = newIndicator.copy();
+            } else {
+                success = true;
+            }
+        }
+        Matrix matrixFai = new Matrix(numBags, numCluster, -1.0);
+        int[] intArray = new int[curCenter.length];
+        for (i=0; i<intArray.length; ++i)
+            intArray[i] = (int) curCenter[i];
+        for(i = 0; i < numBags; i++) {
+            matrixFai.setMatrix(i, i, 0, matrixFai.getColumnDimension()-1, distanceMatrix.getMatrix(i, i, intArray));
+        }
+        matrixFai.print(10, 3);
+        System.out.println("");
+    }
+    
+    private int minimum(Matrix temp) {
+        double min = temp.get(0, 0);
+        int index = 0;
+        for(int i = 0; i < temp.getColumnDimension(); i++) {
+            if(temp.get(0, i) < min) {
+                min = temp.get(0, i);
+                index = i;
+            }
+        }
+        return index;
+    }
+    
+    private double sumMatrix(Matrix distanceMatrix, ArrayList<Integer> pointsInCluster, int index) {
+        double sum = 0.0;
+        for(int i = 0; i < pointsInCluster.size(); i++) {
+            sum += distanceMatrix.get(index, pointsInCluster.get(i));
+        }
+        return sum;
     }
     
     private double getDist(Matrix m){
