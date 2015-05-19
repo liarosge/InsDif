@@ -6,7 +6,16 @@
 package insdifexample;
 
 import java.net.URL;
+import java.util.ArrayList;
 import mulan.data.MultiLabelInstances;
+import mulan.evaluation.Evaluation;
+import mulan.evaluation.Evaluator;
+import mulan.evaluation.measure.AveragePrecision;
+import mulan.evaluation.measure.Coverage;
+import mulan.evaluation.measure.HammingLoss;
+import mulan.evaluation.measure.Measure;
+import mulan.evaluation.measure.OneError;
+import mulan.evaluation.measure.RankingLoss;
 import weka.core.Utils;
 
 /**
@@ -25,8 +34,20 @@ public class InsDifExample {
         testFilePath = InsDifExample.class.getResource("../resources/emotions-test.arff").getFile();
         xmlFilePath = InsDifExample.class.getResource("../resources/emotions.xml").getFile();
         MultiLabelInstances dataset = new MultiLabelInstances(trainFilePath, xmlFilePath);
+        MultiLabelInstances testDataset = new MultiLabelInstances(testFilePath, xmlFilePath);
         InsDif ins = new InsDif(0.1f);
-        ins.buildInternal(dataset);
+        ins.build(dataset);
+        Evaluator ev = new Evaluator();
+        ArrayList<Measure> measures = new ArrayList<>();
+        measures.add(new AveragePrecision());
+        measures.add(new Coverage());
+        measures.add(new OneError());
+        measures.add(new RankingLoss());
+        measures.add(new HammingLoss());
+        Evaluation eval = ev.evaluate(ins, testDataset, dataset);
+        for(Measure measure : eval.getMeasures()){
+            System.out.println(measure.getName() + ": " + measure.getValue());
+        }
     }
     
 }

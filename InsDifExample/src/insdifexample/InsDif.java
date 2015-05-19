@@ -22,8 +22,18 @@ import weka.core.matrix.Matrix;
  *
  * @author 
  */
+
 public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
     
+    private static Matrix matrixFai;
+    Matrix weights;
+    Matrix tVec;
+    Matrix train;
+    int[] clusterCenterIndices;
+    Matrix normTrain;
+    Matrix innerTrainCenter;
+    Matrix innerCenterCenter;
+    double[] normCenter;
     private float ratio;
     public InsDif(float clusterRatio){
         ratio = clusterRatio;
@@ -82,28 +92,24 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
             
             // Create the prototype vectors
             for(k = 0; k < numOfAttrWithoutLabels; k++) {
-                System.out.println("list.get(i).size = " + list.get(i).size());
                 prototypeVectors[i][k] = sum[k]/list.get(i).size();
             }
         }
         //Matlab check: prototypevectors correct!
-        System.out.println("");
         int numClusters = (int) (numOfInstances*ratio);
-        Matrix train = new Matrix(listAttr);
+        train = new Matrix(listAttr);
         Matrix trainlabels = new Matrix(listLabels, numOfInstances, numLabels);
-        double[] normCenter = new double[numLabels];
-        Matrix normTrain = new Matrix(1,numOfInstances); //1x391
-        Matrix tVec = new Matrix(prototypeVectors); //6x72
-//        tVec.print(10,3);
-        Matrix innerCenterCenter = new Matrix(numLabels,numLabels);// 6x6
-        Matrix innerTrainCenter = new Matrix (numOfInstances, numLabels); //391x6
+        normCenter = new double[numLabels];
+        normTrain = new Matrix(1,numOfInstances); //1x391
+        tVec = new Matrix(prototypeVectors); //6x72
+        //tVec.print(10,3);
+        innerCenterCenter = new Matrix(numLabels,numLabels);// 6x6
+        innerTrainCenter = new Matrix (numOfInstances, numLabels); //391x6
         Matrix innerTrainTrain = new Matrix (numOfInstances, numOfInstances); //391x391
-        Matrix matrixFai = new Matrix(numOfInstances, numClusters); //391x39 for ratio =0.1
+        //Matrix matrixFai = new Matrix(numOfInstances, numClusters); //391x39 for ratio =0.1
         Matrix distanceMatrix = new Matrix(numOfInstances, numOfInstances);
         //calc norm_train
         Matrix s = train.arrayTimes(train).transpose();
-        System.out.println(s.getRowDimension());
-        System.out.println(s.getColumnDimension());
         for(i = 0; i < s.getRowDimension(); i++){
             Matrix temp = s.getMatrix(i,i,0,s.getColumnDimension()-1);
             normTrain.plusEquals(temp);
@@ -177,8 +183,12 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
         }
         distanceMatrix.plusEquals(distanceMatrix.transpose());
         mIMLClustering(numClusters, distanceMatrix);
-        //Matlab check: seems good so far
-        //TODO: MIML_cluster
+       
+        Matrix inverseMatrixFai;
+        inverseMatrixFai = matrixFai.inverse();
+        weights = inverseMatrixFai.times(trainlabels);
+        
+        
     }
     
     private void mIMLClustering(int numCluster, Matrix distanceMatrix) {
@@ -213,8 +223,6 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
                 clustering.get(pointer).add(i);
             }
         }
-        
-        /**/
         
         indicator = new Matrix(1, numBags, -1.0);
         double curCenter[] = new double[numCluster];
@@ -307,16 +315,20 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
                 success = true;
             }
         }
-        Matrix matrixFai = new Matrix(numBags, numCluster, -1.0);
+        clusterCenterIndices = new int[numCluster];
+        for(i = 0; i < clustering.size(); i++) {
+            clusterCenterIndices[i] = clustering.get(i).get(0);
+        }
+        matrixFai = new Matrix(numBags, numCluster, -1.0);
         int[] intArray = new int[curCenter.length];
         for (i=0; i<intArray.length; ++i)
             intArray[i] = (int) curCenter[i];
         for(i = 0; i < numBags; i++) {
             matrixFai.setMatrix(i, i, 0, matrixFai.getColumnDimension()-1, distanceMatrix.getMatrix(i, i, intArray));
         }
-        matrixFai.print(10, 3);
-        System.out.println("");
     }
+    
+    
     
     private int minimum(Matrix temp) {
         double min = temp.get(0, 0);
@@ -362,13 +374,79 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
     }
     
     @Override
-    protected MultiLabelOutput makePredictionInternal(Instance instance) throws Exception, InvalidDataException {
-        throw new UnsupportedOperationException("Not supported yet.");
+    protected MultiLabelOutput makePredictionInternal(Instance instance) {
+        double[] features = instance.toDoubleArray();
+        Matrix innerTestTrain = new Matrix(1, train.getRowDimension(), 0.0);
+        Matrix innerTestCenter = new Matrix(1, numLabels, 0.0);
+        int numAttributesWithoutLabels = features.length - numLabels;
+        Matrix featuresMatrix = new Matrix(features, features.length).getMatrix(0, numAttributesWithoutLabels - 1, 0, 0);
+        int i;
+        
+        Matrix res = null;
+        for(i = 0; i < train.getRowDimension(); i++) {
+                Matrix b = train.getMatrix(i,i,0,train.getColumnDimension()-1);
+                res = featuresMatrix.transpose().times(b.transpose());
+                innerTestTrain.setMatrix(0, 0, i, i, res);
+//            innerTestTrain.setMatrix(0, 0, 0,
+//                    innerTestTrain.getColumnDimension()-1, 
+//                    featuresMatrix.times(train.getMatrix(i, i, 0, 
+//                            train.getColumnDimension()-1)));
+        }
+        for(i = 0; i < tVec.getRowDimension(); i++) {
+            innerTestCenter
+                    .setMatrix(0, 0, i, 
+                            i, 
+                            featuresMatrix.transpose().times(tVec.transpose().getMatrix(0, tVec.getColumnDimension() -1, i, 
+                                    i)));
+            
+        }
+        Matrix tempVec = new Matrix(1, clusterCenterIndices.length, 0.0);
+        int index;
+        Matrix dist;
+        double normTestSum = 0.0;
+        Matrix normTest = featuresMatrix.arrayTimes(featuresMatrix).transpose();
+        for(i = 0; i < normTest.getColumnDimension(); i++) {
+            normTestSum += normTest.get(0, i);
+        }
+        double a, b, c, d, temp1, temp2, temp3;
+        //for(i = 0; i < )
+        
+        for(i = 0; i < clusterCenterIndices.length; i++) {
+            index = clusterCenterIndices[i];
+            dist = new Matrix(numLabels, numLabels, 0.0);
+            for(int m = 0; m < numLabels; m++) {
+                for(int n = 0; n < numLabels; n++) {
+                    temp1 = normTestSum + normCenter[m] - 2 * innerTestCenter.get(0, m);
+                    temp2 = normTrain.get(0, index) + normCenter[n] - 2 * innerTrainCenter.get(index, n);
+                    temp3 = -2 * (innerTestTrain.get(0, index) 
+                            - innerTestCenter.get(0, n)
+                            - innerTrainCenter.get(index, m) 
+                            + innerCenterCenter.get(m, n));
+                    dist.set(m, n, Math.sqrt(temp1 + temp2 + temp3));
+                }
+            }
+            tempVec.set(0, i, getDist(dist));
+        }
+        Matrix outputs = tempVec.times(weights);
+        boolean[] outputsArr = new boolean[numLabels];
+        double[] confidence = new double[numLabels];
+        for(i = 0; i < numLabels; i++){
+            if(outputs.get(0, i) >= 0) {
+                outputsArr[i] = true;
+                confidence[i] = outputs.get(0,i);
+            } else {
+                outputsArr[i] = false;
+                confidence[i] = outputs.get(0,i);
+            }
+        }
+        MultiLabelOutput output = new MultiLabelOutput(outputsArr, confidence);
+        return output;
     }
-
+    
     @Override
     public TechnicalInformation getTechnicalInformation() {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
+
     
 }
