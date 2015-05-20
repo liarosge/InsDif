@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package insdifexample;
 
 import java.net.URL;
@@ -37,17 +32,25 @@ public class InsDifExample {
         MultiLabelInstances testDataset = new MultiLabelInstances(testFilePath, xmlFilePath);
         InsDif ins = new InsDif(0.1f);
         ins.build(dataset);
+        
+//        ins.makePrediction(testDataset.getDataSet().get(0));
+//        ins.makePredictionInternal(null);
+        
         Evaluator ev = new Evaluator();
-        ArrayList<Measure> measures = new ArrayList<>();
+        ArrayList<Measure> measures = new ArrayList<Measure>();
         measures.add(new AveragePrecision());
         measures.add(new Coverage());
         measures.add(new OneError());
         measures.add(new RankingLoss());
         measures.add(new HammingLoss());
+        //Evaluation eval = ev.evaluate(ins, new MultiLabelInstances(testFilePath, xmlFilePath), measures);
         Evaluation eval = ev.evaluate(ins, testDataset, dataset);
         for(Measure measure : eval.getMeasures()){
             System.out.println(measure.getName() + ": " + measure.getValue());
         }
+        System.out.println("avpr " + eval.getMeasures().get(4).getValue());
+        eval.getClass();
+        
     }
     
 }
