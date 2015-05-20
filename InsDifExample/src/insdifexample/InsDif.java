@@ -1,28 +1,26 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package insdifexample;
 
-import mulan.classifier.InvalidDataException;
 import mulan.classifier.MultiLabelLearner;
 import mulan.classifier.MultiLabelLearnerBase;
 import mulan.classifier.MultiLabelOutput;
 import mulan.data.MultiLabelInstances;
 import weka.core.Instance;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import weka.core.TechnicalInformation;
-import weka.core.Utils;
 import weka.core.matrix.Matrix;
 /**
  *
- * @author 
+ * @author  Agathangelou Sofia
+ * @author  Liaros Georgios
+ * @author  Paraskevas Eleftherios
+ * @author  Tzanakas Alexandros
+ * @version 2015.05.20
+ * 
  */
 
+@SuppressWarnings("serial")
 public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
     
     private static Matrix matrixFai;
@@ -42,8 +40,10 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
     public InsDif(){
         ratio = 0.1f;
     }
+    
     @Override
     protected void buildInternal(MultiLabelInstances trainingSet) throws Exception {
+        
         // Initializations
         int numOfInstances = trainingSet.getNumInstances();
         numLabels = trainingSet.getNumLabels();
@@ -92,29 +92,30 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
             
             // Create the prototype vectors
             for(k = 0; k < numOfAttrWithoutLabels; k++) {
+                System.out.println("list.get(i).size = " + list.get(i).size());
                 prototypeVectors[i][k] = sum[k]/list.get(i).size();
             }
         }
-        //Matlab check: prototypevectors correct!
+        
         int numClusters = (int) (numOfInstances*ratio);
         train = new Matrix(listAttr);
         Matrix trainlabels = new Matrix(listLabels, numOfInstances, numLabels);
         normCenter = new double[numLabels];
         normTrain = new Matrix(1,numOfInstances); //1x391
         tVec = new Matrix(prototypeVectors); //6x72
-        //tVec.print(10,3);
         innerCenterCenter = new Matrix(numLabels,numLabels);// 6x6
         innerTrainCenter = new Matrix (numOfInstances, numLabels); //391x6
         Matrix innerTrainTrain = new Matrix (numOfInstances, numOfInstances); //391x391
-        //Matrix matrixFai = new Matrix(numOfInstances, numClusters); //391x39 for ratio =0.1
         Matrix distanceMatrix = new Matrix(numOfInstances, numOfInstances);
+        
         //calc norm_train
         Matrix s = train.arrayTimes(train).transpose();
+        System.out.println(s.getRowDimension());
+        System.out.println(s.getColumnDimension());
         for(i = 0; i < s.getRowDimension(); i++){
             Matrix temp = s.getMatrix(i,i,0,s.getColumnDimension()-1);
             normTrain.plusEquals(temp);
         }
-        //Matlab check: normTrain correct!
         
         //calc norm center
         for(i = 0; i < numLabels; i++){
@@ -122,7 +123,7 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
             Matrix b = tVec.getMatrix(i,i,0,tVec.getColumnDimension()-1).transpose();
             normCenter[i] = a.times(b).get(0,0);
         }
-        //Matlab check: normCenter correct!
+
         //calc innerTrainTrain
         double temp;
         for(i = 0; i < numOfInstances; i++){
@@ -135,8 +136,7 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
                 innerTrainTrain.set(j, i, temp);
             }
         }
-//        innerTrainTrain.print(10,3);
-        //Matlab check: innerTrainTrain correct!
+        
         //calc innerTrainCenter
         for(i = 0; i < numOfInstances; i++){
             for(j = 0; j < numLabels; j++){
@@ -145,8 +145,7 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
                 innerTrainCenter.set(i,j,a.times(b).get(0,0));
             }
         }
-//        innerTrainCenter.print(10,3);
-        //Matlab check: innerTrainCenter correct!
+        
         for(i = 0; i < numLabels; i++){
             for(j = 0 ; j < numLabels; j++){
                 Matrix a = tVec.getMatrix(i, i, 0, tVec.getColumnDimension()-1);
@@ -154,8 +153,7 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
                 innerCenterCenter.set(i, j, a.times(b).get(0,0));
             }
         }
-//        innerCenterCenter.print(10,3);
-        //Matlab check: innerCenteCenter correct!
+        
         for(i = 0; i < numOfInstances-1;i++){
             for(j= i+1; j < numOfInstances; j++){
                 Matrix dist = new Matrix(numLabels, numLabels);
@@ -187,8 +185,6 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
         Matrix inverseMatrixFai;
         inverseMatrixFai = matrixFai.inverse();
         weights = inverseMatrixFai.times(trainlabels);
-        
-        
     }
     
     private void mIMLClustering(int numCluster, Matrix distanceMatrix) {
@@ -196,7 +192,6 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
         int numBags = distanceMatrix.getRowDimension();
         Matrix indicator = new Matrix(1, numBags, -1.0);
         Matrix newIndicator=new Matrix(1, numBags, -1.0);
-        //HashMap<Integer, Integer> clustering = new HashMap<>();
         ArrayList<ArrayList<Integer>> clustering = new ArrayList<>(numCluster);
         ArrayList<ArrayList<Integer>> newClustering = new ArrayList<>(numCluster);
         int i;
@@ -328,8 +323,6 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
         }
     }
     
-    
-    
     private int minimum(Matrix temp) {
         double min = temp.get(0, 0);
         int index = 0;
@@ -387,18 +380,12 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
                 Matrix b = train.getMatrix(i,i,0,train.getColumnDimension()-1);
                 res = featuresMatrix.transpose().times(b.transpose());
                 innerTestTrain.setMatrix(0, 0, i, i, res);
-//            innerTestTrain.setMatrix(0, 0, 0,
-//                    innerTestTrain.getColumnDimension()-1, 
-//                    featuresMatrix.times(train.getMatrix(i, i, 0, 
-//                            train.getColumnDimension()-1)));
         }
         for(i = 0; i < tVec.getRowDimension(); i++) {
-            innerTestCenter
-                    .setMatrix(0, 0, i, 
-                            i, 
-                            featuresMatrix.transpose().times(tVec.transpose().getMatrix(0, tVec.getColumnDimension() -1, i, 
-                                    i)));
-            
+            innerTestCenter.setMatrix(0, 0, i, i, 
+                            featuresMatrix.transpose().
+                                    times(tVec.transpose().
+                                            getMatrix(0, tVec.getColumnDimension() -1, i, i)));
         }
         Matrix tempVec = new Matrix(1, clusterCenterIndices.length, 0.0);
         int index;
@@ -408,8 +395,7 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
         for(i = 0; i < normTest.getColumnDimension(); i++) {
             normTestSum += normTest.get(0, i);
         }
-        double a, b, c, d, temp1, temp2, temp3;
-        //for(i = 0; i < )
+        double temp1, temp2, temp3;
         
         for(i = 0; i < clusterCenterIndices.length; i++) {
             index = clusterCenterIndices[i];
@@ -445,8 +431,6 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
     
     @Override
     public TechnicalInformation getTechnicalInformation() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        throw new UnsupportedOperationException("Not supported yet.");
     }
-
-    
 }
