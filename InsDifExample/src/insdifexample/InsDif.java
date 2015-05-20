@@ -1,14 +1,13 @@
-package insdifexample;
+package mulan.classifier;
 
-import mulan.classifier.MultiLabelLearner;
-import mulan.classifier.MultiLabelLearnerBase;
-import mulan.classifier.MultiLabelOutput;
 import mulan.data.MultiLabelInstances;
 import weka.core.Instance;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import weka.core.TechnicalInformation;
+import weka.core.TechnicalInformation.Field;
+import weka.core.TechnicalInformation.Type;
 import weka.core.matrix.Matrix;
 /**
  *
@@ -20,7 +19,6 @@ import weka.core.matrix.Matrix;
  * 
  */
 
-@SuppressWarnings("serial")
 public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
     
     private static Matrix matrixFai;
@@ -54,11 +52,7 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
         double [][] listAttr = new double[numOfInstances][numOfAttrWithoutLabels];
         double [][] listLabels = new double[numOfInstances][numLabels];
         
-        /*
-        *   *************************************
-        *   Step 1 - Create the prototype vectors
-        *   *************************************
-        */
+        // Create the prototype vectors
         for(i=0; i< numOfInstances; i++) {
             for(j=0; j < numOfAttrWithoutLabels; j++) { //0-71
                 listAttr[i][j] = trainingSet.getDataSet().get(i).value(j); // Create a list of attributes
@@ -74,8 +68,7 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
                     instancesForClassI.add(listAttr[j]);
                 }
             }
-            list.add(instancesForClassI);
-            
+            list.add(instancesForClassI);    
         }
 
         // Calculate the mean vectors
@@ -92,7 +85,6 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
             
             // Create the prototype vectors
             for(k = 0; k < numOfAttrWithoutLabels; k++) {
-                System.out.println("list.get(i).size = " + list.get(i).size());
                 prototypeVectors[i][k] = sum[k]/list.get(i).size();
             }
         }
@@ -110,8 +102,6 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
         
         //calc norm_train
         Matrix s = train.arrayTimes(train).transpose();
-        System.out.println(s.getRowDimension());
-        System.out.println(s.getColumnDimension());
         for(i = 0; i < s.getRowDimension(); i++){
             Matrix temp = s.getMatrix(i,i,0,s.getColumnDimension()-1);
             normTrain.plusEquals(temp);
@@ -196,8 +186,8 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
         ArrayList<ArrayList<Integer>> newClustering = new ArrayList<>(numCluster);
         int i;
         for(i = 0; i < numCluster; i++) {
-            clustering.add(new ArrayList<Integer>());
-            newClustering.add(new ArrayList<Integer>());
+            clustering.add(new ArrayList<>());
+            newClustering.add(new ArrayList<>());
         }
         boolean success;
         int pointer;
@@ -344,10 +334,12 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
     }
     
     private double getDist(Matrix m){
+        
         double[][] mat = m.getArray();
         double[][] matTranspose = m.transpose().getArray();
         double[] minVals = new double[numLabels];
         double[] minValsTranspose = new double[numLabels];
+        
         //Find minimum value column-wise for the two matrices
         for(int i = 0; i < numLabels; i++){
             minVals[i]= Double.MAX_VALUE;
@@ -431,6 +423,14 @@ public class InsDif extends MultiLabelLearnerBase implements MultiLabelLearner {
     
     @Override
     public TechnicalInformation getTechnicalInformation() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        TechnicalInformation result = new TechnicalInformation(Type.INCOLLECTION);
+        result.setValue(Field.AUTHOR, "Min-Ling Zhang and Zhi-Hua Zhou");
+        result.setValue(Field.TITLE, "Multi-Label Learning by Instance Differentiation");
+        result.setValue(Field.PAGES, "669-674");
+        result.setValue(Field.BOOKTITLE, "AAAI'07 Proceedings of the 22nd national conference on Artificial intelligence");
+        result.setValue(Field.YEAR, "2007");
+        result.setValue(Field.VOLUME, "1");
+        result.setValue(Field.ISBN, "978-1-57735-323-2");
+        return result;
     }
 }
