@@ -8,7 +8,6 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 /**
  *
@@ -16,7 +15,7 @@ import static org.junit.Assert.*;
  * @author  Liaros Georgios
  * @author  Paraskevas Eleftherios
  * @author  Tzanakas Alexandros
- * @version 2015.05.20
+ * @version 2016.05.21_2220
  * 
  */
 public class InsDifITest {
@@ -34,16 +33,17 @@ public class InsDifITest {
     
     @AfterClass
     public static void tearDownClass() {
+        ///
     }
     
     @Before
     public void setUp() {
-        
-        
+        ///
     }
     
     @After
     public void tearDown() {
+        ///
     }
 
     /**
@@ -91,7 +91,7 @@ public class InsDifITest {
     @Test
     public void testGetTechnicalInformation() {
         InsDif learner = new InsDif();
-       Assert.assertNotNull(learner.getTechnicalInformation());
+        Assert.assertNotNull(learner.getTechnicalInformation());
     }
     
 }
